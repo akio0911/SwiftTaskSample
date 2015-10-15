@@ -24,7 +24,8 @@ class ViewController: UIViewController {
         // Do any additional setup after loading the view, typically from a nib.
         
 //        self.example1()
-        self.example2()
+//        self.example2()
+        self.example3()
     }
 
     override func didReceiveMemoryWarning() {
@@ -137,6 +138,61 @@ class ViewController: UIViewController {
             .success { value -> String in
                 print(value) // Hello Cruel
                 return "\(value) World"
+        }
+    }
+    
+    func example3() {
+        // 成功するタスク
+        func asyncTaskSuccess(value: String) -> MyTask
+        {
+            return MyTask { progress, fulfill, reject, configure in
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100_000_000), dispatch_get_main_queue()) {
+                    fulfill(value)
+                }
+            }
+        }
+
+        // 失敗するタスク
+        func asyncTaskFailure(value: String) -> MyTask
+        {
+            return MyTask { progress, fulfill, reject, configure in
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100_000_000), dispatch_get_main_queue()) {
+                    reject( NSError(domain: value, code: 0, userInfo: nil) )
+                }
+            }
+        }
+        
+        // task1, task2, task3の順に実行する。
+        // どの時点のタスクが失敗しても、failureへ実行が移される
+        // なのでtask1〜3までの例外処理はfailureに書けば良さげ。
+        
+        let task1 = asyncTaskSuccess("task1")
+        task1.success { (value) -> MyTask in
+            print("task1 success")
+            let task2 = asyncTaskSuccess("task2")
+            return task2
+        }.success { (value) -> MyTask in
+            print("task2 success")
+            let task3 = asyncTaskFailure("task3")
+            return task3
+        }.success { (value) -> Void in
+            print("task3 success")
+            
+        }.failure { (error, isCancelled) -> Void in
+            print("failure")
+            
+            guard let err = error else { return }
+            
+            switch err.domain {
+            case "task1":
+                print("task1 failure")
+            case "task2":
+                print("task2 failure")
+            case "task3":
+                print("task3 failure")
+            default:
+                print("other failure")
+            }
         }
     }
 }
